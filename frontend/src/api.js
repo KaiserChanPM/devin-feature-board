@@ -13,3 +13,11 @@ async function request(path, options = {}) {
 export function fetchIdeas() {
   return request('/ideas');
 }
+
+export function createIdea({ title, description }) {
+  return request('/ideas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, description }),
+  });
+}

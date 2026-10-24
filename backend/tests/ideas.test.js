@@ -101,6 +101,120 @@ describe('GET /api/ideas', () => {
   });
 });
 
+describe('POST /api/ideas', () => {
+  const post = (body) => request(app).post('/api/ideas').send(body);
+
+  it('creates an idea and returns it with 201', async () => {
+    const res = await post({ title: 'Bulk import', description: 'Upload a CSV of ideas.' });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({
+      id: expect.any(Number),
+      title: 'Bulk import',
+      description: 'Upload a CSV of ideas.',
+      status: 'under_review',
+      createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
+      voteCount: 0,
+    });
+
+    const list = await request(app).get('/api/ideas');
+    expect(list.body).toEqual([res.body]);
+  });
+
+  it('defaults a new idea to under_review', async () => {
+    const res = await post({ title: 'Bulk import' });
+    expect(res.status).toBe(201);
+    expect(res.body.status).toBe('under_review');
+    expect(db.prepare('SELECT status FROM ideas WHERE id = ?').get(res.body.id).status).toBe('under_review');
+  });
+
+  it('ignores an attempt to set status and other unknown fields', async () => {
+    const res = await post({ title: 'Bulk import', status: 'shipped', voteCount: 99, id: 42 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.status).toBe('under_review');
+    expect(res.body.voteCount).toBe(0);
+    expect(res.body.id).not.toBe(42);
+  });
+
+  it('trims the title and description', async () => {
+    const res = await post({ title: '   Bulk import  ', description: '\n  Upload a CSV.  \n' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.title).toBe('Bulk import');
+    expect(res.body.description).toBe('Upload a CSV.');
+  });
+
+  it('allows the description to be left out or empty', async () => {
+    const missing = await post({ title: 'No description' });
+    const empty = await post({ title: 'Empty description', description: '   ' });
+
+    expect(missing.status).toBe(201);
+    expect(missing.body.description).toBe('');
+    expect(empty.status).toBe(201);
+    expect(empty.body.description).toBe('');
+  });
+
+  it('accepts a title of exactly 3 and exactly 80 characters', async () => {
+    expect((await post({ title: 'abc' })).status).toBe(201);
+    expect((await post({ title: 'a'.repeat(80) })).status).toBe(201);
+  });
+
+  it('accepts a description of exactly 500 characters', async () => {
+    const res = await post({ title: 'Long description', description: 'd'.repeat(500) });
+    expect(res.status).toBe(201);
+    expect(res.body.description).toHaveLength(500);
+  });
+
+  it('includes hasVoted: false when an X-Visitor-Id is sent', async () => {
+    const res = await request(app).post('/api/ideas').set('X-Visitor-Id', 'visitor-1').send({ title: 'Bulk import' });
+    expect(res.status).toBe(201);
+    expect(res.body.hasVoted).toBe(false);
+  });
+
+  it.each([
+    ['missing', {}, 'Title is required'],
+    ['empty', { title: '' }, 'Title is required'],
+    ['whitespace only', { title: '    ' }, 'Title is required'],
+    ['too short', { title: 'ab' }, 'Title must be 3–80 characters'],
+    ['too short after trimming', { title: '  ab  ' }, 'Title must be 3–80 characters'],
+    ['too long', { title: 'a'.repeat(81) }, 'Title must be 3–80 characters'],
+    ['not a string', { title: 123 }, 'Title must be text'],
+  ])('rejects a title that is %s', async (_, body, error) => {
+    const res = await post(body);
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM ideas').get().n).toBe(0);
+  });
+
+  it('rejects a description that is too long', async () => {
+    const res = await post({ title: 'Bulk import', description: 'd'.repeat(501) });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Description must be 500 characters or fewer' });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM ideas').get().n).toBe(0);
+  });
+
+  it('rejects a description that is not a string', async () => {
+    const res = await post({ title: 'Bulk import', description: ['a'] });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Description must be text' });
+  });
+
+  it('rejects a request with no body', async () => {
+    const res = await request(app).post('/api/ideas');
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Title is required' });
+  });
+
+  it('rejects a JSON body that is not an object', async () => {
+    const res = await request(app).post('/api/ideas').set('Content-Type', 'application/json').send('["Bulk import"]');
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Title is required' });
+  });
+});
+
 describe('errors', () => {
   it('returns JSON 404 for unknown routes', async () => {
     const res = await request(app).get('/api/nope');

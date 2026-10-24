@@ -13,11 +13,15 @@ test('lists seeded ideas by votes, newest first on a tie', async ({ page }) => {
 
   await expect(page.getByRole('heading', { level: 1, name: 'Feature Request Board' })).toBeVisible();
 
+  // Other tests post ideas into the same test database, so check only the seeded ideas' order.
   const items = page.getByRole('list', { name: 'Ideas' }).getByRole('listitem');
-  await expect(items.getByRole('heading')).toHaveText(SEEDED_ORDER.map((idea) => idea.title));
+  await expect(items.getByRole('heading', { name: SEEDED_ORDER[0].title })).toBeVisible();
+  const titles = await items.getByRole('heading').allTextContents();
+  const seededTitles = SEEDED_ORDER.map((idea) => idea.title);
+  expect(titles.filter((title) => seededTitles.includes(title))).toEqual(seededTitles);
 
-  for (const [index, idea] of SEEDED_ORDER.entries()) {
-    const item = items.nth(index);
+  for (const idea of SEEDED_ORDER) {
+    const item = items.filter({ has: page.getByRole('heading', { name: idea.title, exact: true }) });
     await expect(item.getByLabel(idea.votes)).toBeVisible();
     await expect(item.getByText(idea.status, { exact: true })).toBeVisible();
   }
@@ -30,7 +34,7 @@ test.describe('at phone width', () => {
 
   test('fits the screen without horizontal scrolling', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('list', { name: 'Ideas' }).getByRole('listitem')).toHaveCount(SEEDED_ORDER.length);
+    await expect(page.getByRole('heading', { name: SEEDED_ORDER[0].title })).toBeVisible();
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);
