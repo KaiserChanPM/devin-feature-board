@@ -58,7 +58,24 @@ Settings are read from the environment, or from a `.env` file in the repo root (
 | Method | Path | Notes |
 | --- | --- | --- |
 | `GET` | `/api/ideas` | All ideas: `id`, `title`, `description`, `status`, `createdAt`, `voteCount`, sorted by `voteCount DESC, createdAt DESC, id DESC`. Adds `hasVoted` when an `X-Visitor-Id` header is sent. |
-
 | `POST` | `/api/ideas` | Suggest an idea. Body: `{ "title", "description" }`. Title is trimmed and must be 3–80 characters; description is optional, trimmed, up to 500 characters. Any other field (such as `status`) is ignored, so new ideas are always `under_review`. Returns `201` with the new idea; invalid input returns `400` with a message naming the field, e.g. `{ "error": "Title must be 3–80 characters" }`. |
+| `POST` | `/api/ideas/:id/vote` | Requires `X-Visitor-Id` (UUID). Returns `200` with the updated idea, including `voteCount` and `hasVoted: true`. Unknown idea → `404`; Shipped or duplicate vote → `409`. |
+| `DELETE` | `/api/ideas/:id/vote` | Requires `X-Visitor-Id` (UUID). Removes only that visitor's vote. Returns `200` with the updated idea and `hasVoted: false`; unknown idea or missing vote → `404`. |
 
 Errors are always JSON: `{ "error": "<message>" }`.
+
+## Voting
+
+The browser generates a `crypto.randomUUID()` once, stores it as `visitorId` in `localStorage`, and
+sends it as `X-Visitor-Id` on every API request. The vote routes reject missing/malformed UUIDs with
+`400`; listing and suggesting ideas still work without a header. Each browser identity can vote
+once per idea, then unvote. Counts and list order refresh from the server after each change.
+
+Shipped ideas have disabled voting controls. The API still allows removing an existing vote from
+a Shipped idea, but never adding one. Duplicate votes are rejected by SQLite's unique constraint,
+including simultaneous requests.
+
+This is anonymous browser identity, not authentication or abuse prevention. Clearing storage or
+using another browser/origin creates a different visitor. `randomUUID()` needs HTTPS or localhost.
+If browser storage or secure UUID generation is unavailable, voting is disabled with an explanation;
+browsing and suggesting ideas remain available. Reload after enabling storage/HTTPS.

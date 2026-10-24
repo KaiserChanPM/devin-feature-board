@@ -1,7 +1,10 @@
+import { getVisitorIdentity } from './visitorId.js';
+
 async function request(path, options = {}) {
+  const { id } = getVisitorIdentity();
   const res = await fetch(`/api${path}`, {
     ...options,
-    headers: { Accept: 'application/json', ...options.headers },
+    headers: { Accept: 'application/json', ...(id && { 'X-Visitor-Id': id }), ...options.headers },
   });
   const body = await res.json().catch(() => null);
   if (!res.ok) {
@@ -20,4 +23,8 @@ export function createIdea({ title, description }) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title, description }),
   });
+}
+
+export function changeVote(id, hasVoted) {
+  return request(`/ideas/${id}/vote`, { method: hasVoted ? 'DELETE' : 'POST' });
 }
