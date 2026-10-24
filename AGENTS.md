@@ -8,6 +8,8 @@ and accepted decisions before starting a ticket.
 ```
 package.json            npm workspaces root; scripts: dev, seed, test, test:e2e, build
 .env.example            PORT, ADMIN_PASSCODE, DATABASE_PATH
+shared/
+  ideaRules.js          validation rules for a new idea, imported by both backend and frontend
 backend/
   src/app.js            createApp(db): builds the Express app; tests pass an in-memory db
   src/db.js             openDb(): opens SQLite, enables foreign keys, creates tables
@@ -47,6 +49,10 @@ npm run build          # production build of the frontend
   Status codes follow PLAN.md decision 3.2 (400 bad input, 403 passcode, 404 not found, 409 conflict).
 - Build the app with `createApp(db)`; don't open the database inside routes. Tests use
   `openDb(':memory:')`.
+- Rules that both the API and the UI enforce live once in `shared/` (plain ESM, no dependencies),
+  imported by relative path from both workspaces. Don't duplicate limits in components or routes.
+- Playwright seeds `e2e.db` once per run, so ideas created by one test are visible to the others:
+  find ideas by title, not by position or list length.
 - Statuses are `under_review`, `planned`, `shipped` (enforced by a `CHECK` in `db.js`).
 - Sort order for ideas is `voteCount DESC, created_at DESC, id DESC`. `created_at` is ISO-8601 with
   milliseconds so it sorts correctly as text.

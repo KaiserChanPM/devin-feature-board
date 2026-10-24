@@ -59,4 +59,6 @@ Settings are read from the environment, or from a `.env` file in the repo root (
 | --- | --- | --- |
 | `GET` | `/api/ideas` | All ideas: `id`, `title`, `description`, `status`, `createdAt`, `voteCount`, sorted by `voteCount DESC, createdAt DESC, id DESC`. Adds `hasVoted` when an `X-Visitor-Id` header is sent. |
 
+| `POST` | `/api/ideas` | Suggest an idea. Body: `{ "title", "description" }`. Title is trimmed and must be 3–80 characters; description is optional, trimmed, up to 500 characters. Any other field (such as `status`) is ignored, so new ideas are always `under_review`. Returns `201` with the new idea; invalid input returns `400` with a message naming the field, e.g. `{ "error": "Title must be 3–80 characters" }`. |
+
 Errors are always JSON: `{ "error": "<message>" }`.
