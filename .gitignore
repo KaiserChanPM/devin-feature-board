@@ -1,0 +1,15 @@
+node_modules/
+.env
+
+# SQLite databases (demo + e2e)
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Frontend build and Playwright output
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/playwright/.cache/

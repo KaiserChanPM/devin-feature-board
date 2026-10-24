@@ -154,7 +154,7 @@ Each milestone is **one Linear ticket**. The numbered sub-tasks are the checklis
 5. **Demo bug (D6) vs CI.** The tie-break tests from M1/M3 will fail on the sabotage change. Either merge it with CI bypassed, or have it also weaken that test, which makes it a more believable bug. Also, simply removing `created_at DESC` makes ties come back **oldest first** (insertion order), which is predictable, not "random". To match the report's wording, the sabotage should sort ties by something unstable, or the report should say "wrong order".
 6. **Wiki timing.** The PRD puts `.devin/wiki.json` after M2, but its "How a vote flows" page would describe a feature that doesn't exist until M3. Moving it to right after M3 is the better order; it can still be written while M4 is being built.
 7. **Unspecified edge cases now settled:** titles are trimmed before the length check; `status` sent on create is ignored; removing a vote you never cast returns 404; same→same and any change from Shipped are blocked; a missing `ADMIN_PASSCODE` refuses all admin calls.
-8. **Native module.** `better-sqlite3` needs a native build step. The blueprint (1.12) and CI (1.10) must use a supported Node LTS (20 or 22). Fallback: Node 22's built-in `node:sqlite`.
+8. **Native module and Node version.** `better-sqlite3` needs a native build step. The current major versions of the core libraries (`better-sqlite3` 13, Vitest 5, `concurrently` 10, Vite 8) need Node 22.12 or newer, so the project is pinned to **Node 24 LTS** (`.nvmrc`, used by CI and the blueprint). `better-sqlite3` installs from a prebuilt binary on Node 24. Fallback: Node's built-in `node:sqlite`.
 
 ---
 
