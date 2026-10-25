@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { validateIdea } from '../../../shared/ideaRules.js';
 import { HttpError } from '../errors.js';
+import { requireVisitorId } from '../visitorId.js';
 
 const IDEA_COLUMNS = `
   i.id,
@@ -32,6 +33,16 @@ export function ideasRouter(db) {
   `);
 
   const insertIdea = db.prepare('INSERT INTO ideas (title, description) VALUES (@title, @description)');
+  const insertVote = db.prepare('INSERT INTO votes (idea_id, visitor_id) VALUES (@id, @visitorId)');
+  const deleteVote = db.prepare('DELETE FROM votes WHERE idea_id = @id AND visitor_id = @visitorId');
+
+  function voteParams(req) {
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id < 1) throw new HttpError(404, 'Idea not found');
+    const params = { id, visitorId: req.visitorId };
+    if (!getIdea.get(params)) throw new HttpError(404, 'Idea not found');
+    return params;
+  }
 
   function toIdea({ hasVoted, ...idea }, visitorId) {
     return visitorId ? { ...idea, hasVoted: hasVoted === 1 } : idea;
@@ -51,6 +62,24 @@ export function ideasRouter(db) {
     const visitorId = req.get('X-Visitor-Id') || null;
     const { lastInsertRowid: id } = insertIdea.run(value);
     res.status(201).json(toIdea(getIdea.get({ id, visitorId }), visitorId));
+  });
+
+  router.post('/:id/vote', requireVisitorId, (req, res) => {
+    const params = voteParams(req);
+    if (getIdea.get(params).status === 'shipped') throw new HttpError(409, 'Shipped ideas cannot be voted on');
+    try {
+      insertVote.run(params);
+    } catch (err) {
+      if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') throw new HttpError(409, 'You already voted on this idea');
+      throw err;
+    }
+    res.json(toIdea(getIdea.get(params), params.visitorId));
+  });
+
+  router.delete('/:id/vote', requireVisitorId, (req, res) => {
+    const params = voteParams(req);
+    if (deleteVote.run(params).changes === 0) throw new HttpError(404, 'Vote not found');
+    res.json(toIdea(getIdea.get(params), params.visitorId));
   });
 
   return router;

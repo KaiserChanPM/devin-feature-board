@@ -21,6 +21,7 @@ backend/
   tests/                Vitest + Supertest API tests
 frontend/
   src/api.js            all fetch calls to /api
+  src/visitorId.js      persistent browser UUID, or a read-only fallback when storage is unavailable
   src/components/       React components
   src/status.js         status labels
   e2e/                  Playwright tests
@@ -53,6 +54,11 @@ npm run build          # production build of the frontend
   imported by relative path from both workspaces. Don't duplicate limits in components or routes.
 - Playwright seeds `e2e.db` once per run, so ideas created by one test are visible to the others:
   find ideas by title, not by position or list length.
+- Vote e2e tests create their own ideas; do not mutate seeded vote counts/order.
+- Vote routes require UUID-formatted `X-Visitor-Id` via `requireVisitorId`; other routes keep it optional.
+  Catch `SQLITE_CONSTRAINT_UNIQUE` for duplicate-vote 409, rather than checking before insert.
+- Shipped UI controls are disabled; POST rejects Shipped, but DELETE can remove an existing vote.
+- Keep confirmed mutation responses visible if a list refresh fails; ignore superseded list responses.
 - Statuses are `under_review`, `planned`, `shipped` (enforced by a `CHECK` in `db.js`).
 - Sort order for ideas is `voteCount DESC, created_at DESC, id DESC`. `created_at` is ISO-8601 with
   milliseconds so it sorts correctly as text.

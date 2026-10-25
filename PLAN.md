@@ -100,6 +100,14 @@ Each milestone is **one Linear ticket**. The numbered sub-tasks are the checklis
 | 3.6 | API tests: vote, duplicate vote returns 409, removing a vote, removing a vote that doesn't exist, voting on Shipped, unknown idea, missing visitor ID, two visitors on the same idea, tie-break after votes |
 | 3.7 | Extend the Playwright test: vote, re-sort, unvote |
 
+M3 contract details: vote routes require UUID-formatted visitor headers and return the updated idea
+(200, with `voteCount` and `hasVoted`). List/create headers remain optional. Shipped controls are
+disabled; POST rejects Shipped, while DELETE may remove an existing vote. Browser identity uses
+`localStorage.visitorId`; unavailable storage/secure UUID generation leaves browsing and suggesting
+available but disables voting with an explanation. Mutations retain confirmed state if refresh fails,
+and superseded list responses are ignored. Browser tests create their own voting ideas to preserve
+the seeded counts used by list regressions.
+
 ### W1 DeepWiki outline — *Lite or Normal*, after M3
 
 | # | Sub-task |
