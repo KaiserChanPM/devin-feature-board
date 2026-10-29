@@ -10,8 +10,10 @@ package.json            npm workspaces root; scripts: dev, seed, test, test:e2e,
 .env.example            PORT, ADMIN_PASSCODE, DATABASE_PATH
 shared/
   ideaRules.js          validation rules for a new idea, imported by both backend and frontend
+  statusRules.js        status values and allowed transitions, shared by API and UI
 backend/
-  src/app.js            createApp(db): builds the Express app; tests pass an in-memory db
+  src/app.js            createApp(db, { adminPasscode }?): app factory + admin verify endpoint
+  src/admin.js          fail-closed passcode middleware, fixed-length digest comparison
   src/db.js             openDb(): opens SQLite, enables foreign keys, creates tables
   src/errors.js         HttpError, 404 handler, JSON error middleware
   src/routes/           one router per resource (ideas.js)
@@ -22,6 +24,7 @@ backend/
 frontend/
   src/api.js            all fetch calls to /api
   src/visitorId.js      persistent browser UUID, or a read-only fallback when storage is unavailable
+  src/useAdminSession.js  verified sessionStorage credentials, restoration and exit/403 cleanup
   src/components/       React components
   src/status.js         status labels
   e2e/                  Playwright tests
@@ -55,11 +58,20 @@ npm run build          # production build of the frontend
 - Playwright seeds `e2e.db` once per run, so ideas created by one test are visible to the others:
   find ideas by title, not by position or list length.
 - Vote e2e tests create their own ideas; do not mutate seeded vote counts/order.
+- Admin e2e tests also create their own ideas; never change seeded statuses. Playwright sets its
+  own test-only passcode. Scope alerts to the relevant region when multiple errors can coexist.
 - Vote routes require UUID-formatted `X-Visitor-Id` via `requireVisitorId`; other routes keep it optional.
   Catch `SQLITE_CONSTRAINT_UNIQUE` for duplicate-vote 409, rather than checking before insert.
 - Shipped UI controls are disabled; POST rejects Shipped, but DELETE can remove an existing vote.
 - Keep confirmed mutation responses visible if a list refresh fails; ignore superseded list responses.
 - Statuses are `under_review`, `planned`, `shipped` (enforced by a `CHECK` in `db.js`).
+- Status values/transitions live in `shared/statusRules.js`: Under review → Planned; Planned →
+  Under review or Shipped; Shipped is terminal. Check/update in a database transaction.
+- Admin verify/status routes require `X-Admin-Passcode`; missing/empty configuration fails closed
+  and warns at app creation. Tests can inject `createApp(db, { adminPasscode: 'test-only' })`.
+- Keep admin credentials in sessionStorage only, reverify on reload, clear on exit/403, and never
+  add the header to public requests. Serialize vote/status mutations per card and preserve HTTP
+  status on frontend errors so authorization failures can lock admin mode.
 - Sort order for ideas is `voteCount DESC, created_at DESC, id DESC`. `created_at` is ISO-8601 with
   milliseconds so it sorts correctly as text.
 - ES modules everywhere (`"type": "module"`). Keep frontend fetch calls in `src/api.js`.

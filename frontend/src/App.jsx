@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { changeVote, fetchIdeas } from './api.js';
+import { changeStatus, changeVote, fetchIdeas } from './api.js';
 import { getVisitorIdentity } from './visitorId.js';
+import useAdminSession from './useAdminSession.js';
 import Header from './components/Header.jsx';
 import IdeaList from './components/IdeaList.jsx';
 import SuggestForm from './components/SuggestForm.jsx';
@@ -10,6 +11,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const requestVersion = useRef(0);
   const [identity] = useState(getVisitorIdentity);
+  const admin = useAdminSession();
 
   const loadIdeas = useCallback(async (isCurrent = () => true) => {
     const version = ++requestVersion.current;
@@ -31,13 +33,14 @@ export default function App() {
     };
   }, [loadIdeas]);
 
-  async function handleVote(idea) {
+  async function mutateIdea(mutation) {
     ++requestVersion.current;
     try {
-      const updated = await changeVote(idea.id, idea.hasVoted);
+      const updated = await mutation();
       ++requestVersion.current;
       setIdeas((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     } catch (err) {
+      if (err.status === 403) admin.exit('Admin session expired or was rejected. Enter the passcode again.');
       await loadIdeas();
       throw err;
     }
@@ -46,7 +49,7 @@ export default function App() {
 
   return (
     <>
-      <Header />
+      <Header admin={admin} />
       <main className="container">
         <SuggestForm onCreated={() => loadIdeas()} />
         {identity.error && (
@@ -62,7 +65,9 @@ export default function App() {
         {ideas === null ? (
           !error && <p className="message">Loading ideas…</p>
         ) : (
-          <IdeaList ideas={ideas} onVote={handleVote} votingEnabled={Boolean(identity.id)} />
+          <IdeaList ideas={ideas} votingEnabled={Boolean(identity.id)} adminEnabled={Boolean(admin.passcode)}
+            onVote={(idea) => mutateIdea(() => changeVote(idea.id, idea.hasVoted))}
+            onStatusChange={(idea, status) => mutateIdea(() => changeStatus(idea.id, status, admin.passcode))} />
         )}
       </main>
     </>

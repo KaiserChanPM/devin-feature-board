@@ -161,7 +161,7 @@ test('preserves browsing and suggestions when storage is blocked', async ({ page
     Storage.prototype.getItem = () => { throw new DOMException('Storage denied', 'SecurityError'); };
   });
   await page.goto('/');
-  await expect(page.getByRole('alert')).toContainText('Voting is unavailable');
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('Voting is unavailable');
   await expect(card(page, { title: 'Dark mode' }).getByRole('button')).toBeDisabled();
   const form = page.getByRole('region', { name: 'Suggest a feature' });
   await form.getByLabel('Title').fill(`Storage blocked ${crypto.randomUUID()}`);

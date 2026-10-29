@@ -49,6 +49,28 @@ main.container {
   font-size: 1.25rem;
 }
 
+.admin-form {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-message {
+  margin: 0;
+  padding-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.idea-card__statuses {
+  margin-top: 12px;
+}
+
 .button {
   font: inherit;
   padding: 6px 14px;
