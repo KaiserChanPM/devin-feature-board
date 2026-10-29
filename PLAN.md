@@ -128,6 +128,21 @@ the seeded counts used by list regressions.
 | 4.6 | API tests: all 3 allowed changes, all 6 blocked ones (including same→same and anything from Shipped), wrong / missing passcode, passcode not set, unknown idea, unknown status. Plus one test across features: an idea becomes Shipped, then a vote on it returns 409 |
 | 4.7 | Extend the Playwright test: unlock admin, move an idea to Planned, then Shipped; its vote button becomes disabled |
 
+M4 contract details: `shared/statusRules.js` is the single source for status values/transitions.
+Admin authentication fails closed for unset/empty configuration (warning at app creation), compares
+fixed-length SHA-256 digests with `timingSafeEqual`, and protects both verification and status routes.
+Status transitions run in an immediate SQLite transaction and return the complete idea, preserving
+counts and optional visitor-specific `hasVoted`. No schema migration is needed.
+
+The inline password form verifies before storing in `sessionStorage.adminPasscode`; saved credentials
+are reverified on reload. Exit and 403 clear admin mode; blocked storage leaves entry locked with a
+message. Only allowed status actions are rendered. Vote/status mutations on a card are serialized,
+confirmed mutations survive failed refreshes, conflicts refresh persisted state, and superseded list
+and verification responses are ignored. Tests create fresh ideas rather than changing seeded fixtures.
+API coverage includes the complete 3×3 transition matrix, auth/validation and shipping → vote 409;
+browser coverage also exercises restoration/exit, 403, storage/network failure, concurrency and refresh
+recovery. No lint/type-check scripts are configured; use the build, JS syntax checks and diff checks.
+
 ### Demo tasks (rehearsals after M4; kept as separate tickets, not built in the milestones)
 
 | ID | Task | Depends on | Mode | Notes |

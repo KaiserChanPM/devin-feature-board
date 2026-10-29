@@ -1,8 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-
-export const STATUSES = ['under_review', 'planned', 'shipped'];
+import { STATUSES } from '../../shared/statusRules.js';
 
 export const DEFAULT_DATABASE_PATH = path.resolve(import.meta.dirname, '../data/feature-board.db');
 

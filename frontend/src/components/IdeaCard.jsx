@@ -1,23 +1,25 @@
 import { useRef, useState } from 'react';
 import StatusBadge from './StatusBadge.jsx';
+import { allowedStatuses } from '../../../shared/statusRules.js';
+import { STATUS_LABELS } from '../status.js';
 
-export default function IdeaCard({ idea, onVote, votingEnabled }) {
+export default function IdeaCard({ idea, onVote, votingEnabled, adminEnabled, onStatusChange }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(null);
   const inFlight = useRef(false);
   const votesLabel = `${idea.voteCount} ${idea.voteCount === 1 ? 'vote' : 'votes'}`;
   const shipped = idea.status === 'shipped';
-  const errorId = `vote-error-${idea.id}`;
+  const errorId = `idea-error-${idea.id}`;
 
-  async function handleVote() {
+  async function mutate(action, label) {
     if (inFlight.current) return;
     inFlight.current = true;
     setPending(true);
     setError(null);
     try {
-      await onVote(idea);
+      await action();
     } catch (err) {
-      setError(err.message);
+      setError(`Couldn't save ${label}: ${err.message}`);
     } finally {
       inFlight.current = false;
       setPending(false);
@@ -42,7 +44,7 @@ export default function IdeaCard({ idea, onVote, votingEnabled }) {
           aria-describedby={error ? errorId : undefined}
           disabled={shipped || pending || !votingEnabled}
           title={shipped ? 'Shipped ideas are closed to voting' : undefined}
-          onClick={handleVote}
+          onClick={() => mutate(() => onVote(idea), 'your vote')}
         >
           {pending ? 'Saving…' : idea.hasVoted ? 'Unvote' : 'Vote'}
         </button>
@@ -55,9 +57,20 @@ export default function IdeaCard({ idea, onVote, votingEnabled }) {
         {idea.description && <p className="idea-card__description">{idea.description}</p>}
         {idea.hasVoted && <p className="idea-card__voted">You voted</p>}
         {shipped && <p className="idea-card__closed">Voting closed</p>}
+        {adminEnabled && allowedStatuses(idea.status).length > 0 && (
+          <div className="admin-actions idea-card__statuses" role="group" aria-label={`Change status of ${idea.title}`}>
+            {allowedStatuses(idea.status).map((status) => (
+              <button key={status} type="button" className="button" disabled={pending}
+                aria-busy={pending} aria-describedby={error ? errorId : undefined}
+                onClick={() => mutate(() => onStatusChange(idea, status), 'status')}>
+                Move to {STATUS_LABELS[status]}
+              </button>
+            ))}
+          </div>
+        )}
         {error && (
           <p id={errorId} className="form-message form-message--error" role="alert">
-            Couldn't save your vote: {error}
+            {error}
           </p>
         )}
       </div>

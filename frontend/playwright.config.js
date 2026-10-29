@@ -21,7 +21,7 @@ export default defineConfig({
       // Seeds a fresh test database, then starts the API on it.
       command: 'npm run seed && npm start',
       cwd: '../backend',
-      env: { PORT: String(API_PORT), DATABASE_PATH: 'data/e2e.db' },
+      env: { PORT: String(API_PORT), DATABASE_PATH: 'data/e2e.db', ADMIN_PASSCODE: 'e2e-admin-passcode' },
       url: `http://localhost:${API_PORT}/api/ideas`,
       reuseExistingServer: false,
     },

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { validateIdea } from '../../../shared/ideaRules.js';
+import { allowedStatuses, STATUSES } from '../../../shared/statusRules.js';
 import { HttpError } from '../errors.js';
 import { requireVisitorId } from '../visitorId.js';
 
@@ -13,7 +14,7 @@ const IDEA_COLUMNS = `
   COALESCE(MAX(v.visitor_id = @visitorId), 0)   AS hasVoted
 `;
 
-export function ideasRouter(db) {
+export function ideasRouter(db, requireAdmin) {
   const router = Router();
 
   const listIdeas = db.prepare(`
@@ -35,6 +36,16 @@ export function ideasRouter(db) {
   const insertIdea = db.prepare('INSERT INTO ideas (title, description) VALUES (@title, @description)');
   const insertVote = db.prepare('INSERT INTO votes (idea_id, visitor_id) VALUES (@id, @visitorId)');
   const deleteVote = db.prepare('DELETE FROM votes WHERE idea_id = @id AND visitor_id = @visitorId');
+  const updateStatus = db.prepare('UPDATE ideas SET status = @status WHERE id = @id');
+  const changeStatus = db.transaction((params, status) => {
+    const idea = getIdea.get(params);
+    if (!idea) throw new HttpError(404, 'Idea not found');
+    if (!allowedStatuses(idea.status).includes(status)) {
+      throw new HttpError(409, 'Status change not allowed');
+    }
+    updateStatus.run({ id: params.id, status });
+    return getIdea.get(params);
+  });
 
   function voteParams(req) {
     const id = Number(req.params.id);
@@ -62,6 +73,15 @@ export function ideasRouter(db) {
     const visitorId = req.get('X-Visitor-Id') || null;
     const { lastInsertRowid: id } = insertIdea.run(value);
     res.status(201).json(toIdea(getIdea.get({ id, visitorId }), visitorId));
+  });
+
+  router.patch('/:id/status', requireAdmin, (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id < 1) throw new HttpError(404, 'Idea not found');
+    const status = req.body?.status;
+    if (!STATUSES.includes(status)) throw new HttpError(400, 'Unknown status');
+    const visitorId = req.get('X-Visitor-Id') || null;
+    res.json(toIdea(changeStatus.immediate({ id, visitorId }, status), visitorId));
   });
 
   router.post('/:id/vote', requireVisitorId, (req, res) => {
